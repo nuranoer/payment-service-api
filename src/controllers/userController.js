@@ -103,28 +103,57 @@ exports.getBalance = async (req, res) => {
 // ✅ TOP UP
 exports.topUp = async (req, res) => {
   try {
-    const { amount } = req.body;
+    let { top_up_amount } = req.body;
 
+    // 🔥 paksa jadi number
+    const amount = Number(top_up_amount);
+
+    // ❌ validasi
     if (!amount || amount <= 0) {
-      return res.status(400).json({ message: "Amount tidak valid" });
+      return res.status(400).json({
+        status: 102,
+        message: "Paramter amount hanya boleh angka dan tidak boleh lebih kecil dari 0",
+        data: null
+      });
     }
+
+    // ambil saldo sekarang
+    const [rows] = await db.execute(
+      "SELECT balance FROM users WHERE id = ?",
+      [req.user.id]
+    );
+
+    // 🔥 pastikan number
+    const currentBalance = Number(rows[0]?.balance) || 0;
+
+    const newBalance = currentBalance + amount;
 
     // update saldo
     await db.execute(
-      "UPDATE users SET balance = balance + ? WHERE id = ?",
-      [amount, req.user.id]
+      "UPDATE users SET balance = ? WHERE id = ?",
+      [newBalance, req.user.id]
     );
 
     // simpan transaksi
     await db.execute(
-      "INSERT INTO transactions (user_id, type, amount, description) VALUES (?, 'TOPUP', ?, 'Top Up')",
+      "INSERT INTO transactions (user_id, transaction_type, amount) VALUES (?, 'TOPUP', ?)",
       [req.user.id, amount]
     );
 
-    res.json({ message: "Top up berhasil" });
+    return res.status(200).json({
+      status: 0,
+      message: "Top Up Balance berhasil",
+      data: {
+        balance: newBalance
+      }
+    });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      status: 500,
+      message: error.message,
+      data: null
+    });
   }
 };
 
