@@ -160,39 +160,89 @@ exports.topUp = async (req, res) => {
 // ✅ TRANSAKSI
 exports.transaction = async (req, res) => {
   try {
-    const { amount, description } = req.body;
+    const { service_code } = req.body;
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ message: "Amount tidak valid" });
+    // ❌ validasi
+    if (!service_code) {
+      return res.status(400).json({
+        status: 102,
+        message: "Service ataus Layanan tidak ditemukan",
+        data: null
+      });
     }
 
-    // cek saldo
-    const [rows] = await db.execute(
+    // 🔎 ambil service
+    const [serviceRows] = await db.execute(
+      "SELECT * FROM services WHERE service_code = ?",
+      [service_code]
+    );
+
+    if (serviceRows.length === 0) {
+      return res.status(400).json({
+        status: 102,
+        message: "Service ataus Layanan tidak ditemukan",
+        data: null
+      });
+    }
+
+    const service = serviceRows[0];
+    const amount = Number(service.service_tariff);
+
+    // 💰 ambil saldo user
+    const [userRows] = await db.execute(
       "SELECT balance FROM users WHERE id = ?",
       [req.user.id]
     );
 
-    const balance = rows[0].balance;
+    const currentBalance = Number(userRows[0]?.balance) || 0;
 
-    if (balance < amount) {
-      return res.status(400).json({ message: "Saldo tidak cukup" });
+    // ❌ saldo tidak cukup
+    if (currentBalance < amount) {
+      return res.status(400).json({
+        status: 102,
+        message: "Saldo tidak mencukupi",
+        data: null
+      });
     }
 
-    // kurangi saldo
+    const newBalance = currentBalance - amount;
+
+    // update saldo
     await db.execute(
-      "UPDATE users SET balance = balance - ? WHERE id = ?",
-      [amount, req.user.id]
+      "UPDATE users SET balance = ? WHERE id = ?",
+      [newBalance, req.user.id]
     );
+
+    // 🧾 generate invoice
+    const invoice = `INV${Date.now()}`;
 
     // simpan transaksi
-    await db.execute(
-      "INSERT INTO transactions (user_id, type, amount, description) VALUES (?, 'PAYMENT', ?, ?)",
-      [req.user.id, amount, description]
+    const [result] = await db.execute(
+      `INSERT INTO transactions 
+      (user_id, transaction_type, amount, service_code, invoice_number) 
+      VALUES (?, 'PAYMENT', ?, ?, ?)`,
+      [req.user.id, amount, service_code, invoice]
     );
 
-    res.json({ message: "Transaksi berhasil" });
+    // response
+    return res.status(200).json({
+      status: 0,
+      message: "Transaksi berhasil",
+      data: {
+        invoice_number: invoice,
+        service_code: service.service_code,
+        service_name: service.service_name,
+        transaction_type: "PAYMENT",
+        total_amount: amount,
+        created_on: new Date()
+      }
+    });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      status: 500,
+      message: error.message,
+      data: null
+    });
   }
 };
