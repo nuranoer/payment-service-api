@@ -80,15 +80,23 @@ exports.getBalance = async (req, res) => {
   try {
     const [rows] = await db.execute(
       "SELECT balance FROM users WHERE id = ?",
-      [req.user.id]
+      [req.user.id] // 🔥 dari JWT
     );
 
-    res.json({
-      balance: rows[0].balance
+    return res.status(200).json({
+      status: 0,
+      message: "Get Balance Berhasil",
+      data: {
+        balance: rows[0].balance
+      }
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      status: 500,
+      message: error.message,
+      data: null
+    });
   }
 };
 
