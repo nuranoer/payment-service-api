@@ -246,3 +246,74 @@ exports.transaction = async (req, res) => {
     });
   }
 };
+
+//TRANSACTION HISTORY
+
+exports.getTransactionHistory = async (req, res) => {
+  try {
+    // 🔥 parsing aman
+    let offset = parseInt(req.query.offset);
+    let limit = parseInt(req.query.limit);
+
+    // default value
+    if (isNaN(offset)) offset = 0;
+    if (isNaN(limit)) limit = null;
+
+    let query = `
+      SELECT 
+        t.invoice_number,
+        t.transaction_type,
+        t.amount AS total_amount,
+        t.created_at AS created_on,
+        s.service_name
+      FROM transactions t
+      LEFT JOIN services s 
+        ON t.service_code = s.service_code
+      WHERE t.user_id = ?
+      ORDER BY t.created_at DESC
+    `;
+
+    let params = [req.user.id];
+
+    // 🔥 hanya kalau limit valid
+    if (limit !== null) {
+      query += " LIMIT ? OFFSET ?";
+      params.push(limit, offset);
+    }
+
+    // 🔥 DEBUG (WAJIB CEK SEKALI)
+    console.log("QUERY:", query);
+    console.log("PARAMS:", params);
+
+    const [rows] = await db.execute(query, params);
+
+    const records = rows.map((item) => ({
+      invoice_number: item.invoice_number,
+      transaction_type: item.transaction_type,
+      description:
+        item.transaction_type === "TOPUP"
+          ? "Top Up balance"
+          : item.service_name,
+      total_amount: item.total_amount,
+      created_on: item.created_on
+    }));
+
+    return res.status(200).json({
+      status: 0,
+      message: "Get History Berhasil",
+      data: {
+        offset,
+        limit,
+        records
+      }
+    });
+
+  } catch (error) {
+    console.log("ERROR:", error); // 🔥 debug
+    return res.status(500).json({
+      status: 500,
+      message: error.message,
+      data: null
+    });
+  }
+};

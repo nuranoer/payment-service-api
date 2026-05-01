@@ -28,5 +28,6 @@ router.get("/services", authMiddleware, serviceController.getServices);
 router.get("/balance", authMiddleware, userController.getBalance);
 router.post("/topup", authMiddleware, userController.topUp);
 router.post("/transaction", authMiddleware, userController.transaction);
+router.get("/transaction/history", authMiddleware, userController.getTransactionHistory);
 
 module.exports = router;
