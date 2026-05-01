@@ -8,6 +8,8 @@ const routes = require("./routes");
 // Middleware
 app.use(express.json());
 
+app.use("/uploads", express.static("uploads"));
+
 // Root endpoint
 app.get("/", (req, res) => {
   res.json({ message: "API is running 🚀" });

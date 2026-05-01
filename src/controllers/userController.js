@@ -1,5 +1,80 @@
 const db = require("../config/db");
+//Profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const { first_name, last_name } = req.body;
 
+    if (!first_name || !last_name) {
+      return res.status(400).json({
+        status: 102,
+        message: "Parameter tidak lengkap",
+        data: null
+      });
+    }
+
+    // update data
+    await db.execute(
+      "UPDATE users SET first_name = ?, last_name = ? WHERE id = ?",
+      [first_name, last_name, req.user.id]
+    );
+
+    // ambil data terbaru
+    const [rows] = await db.execute(
+      "SELECT email, first_name, last_name, profile_image FROM users WHERE id = ?",
+      [req.user.id]
+    );
+
+    return res.status(200).json({
+      status: 0,
+      message: "Update Profile berhasil",
+      data: rows[0]
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+exports.uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        status: 102,
+        message: "Format Image tidak sesuai",
+        data: null
+      });
+    }
+
+    const imageUrl = `http://localhost:3000/uploads/${req.file.filename}`;
+
+    await db.execute(
+      "UPDATE users SET profile_image = ? WHERE id = ?",
+      [imageUrl, req.user.id]
+    );
+
+    const [rows] = await db.execute(
+      "SELECT email, first_name, last_name, profile_image FROM users WHERE id = ?",
+      [req.user.id]
+    );
+
+    return res.status(200).json({
+      status: 0,
+      message: "Update Profile Image berhasil",
+      data: rows[0]
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      status: 102,
+      message: error.message,
+      data: null
+    });
+  }
+};
 // ✅ CEK SALDO
 exports.getBalance = async (req, res) => {
   try {
